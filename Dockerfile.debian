@@ -1,0 +1,16 @@
+FROM debian:bullseye-slim
+
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    gnupg
+
+# Install crowdsec-firewall-bouncer    
+RUN curl -s https://install.crowdsec.net | sh && \
+    apt-get update && \
+    apt-get install -y crowdsec-firewall-bouncer && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]
