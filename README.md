@@ -1,6 +1,6 @@
 # CrowdSec Firewall Bouncer Docker
 
-This repository provides a Dockerized version of the [CrowdSec Firewall Bouncer](https://github.com/crowdsecurity/cs-firewall-bouncer), specifically for users who cannot install the firewall package directly on their system. This containerized approach allows the bouncer to run independently, making it suitable for environments like TrueNAS SCALE.
+This repository provides a Dockerized version of the [CrowdSec Firewall Bouncer](https://github.com/crowdsecurity/cs-firewall-bouncer).
 
 ## Features
 - Supports **nftables** only.
@@ -54,10 +54,6 @@ A good starting point: https://github.com/crowdsecurity/cs-firewall-bouncer/blob
    ```sh
    nft -a list ruleset
    ```
-
-## Notes
-- This container is built primarily for systems that cannot install the firewall package directly, such as **TrueNAS Scale**.
-- If you encounter any issues, please check the logs and ensure all environment variables are set correctly.
 
 ## License
 This project is licensed under the MIT License.
