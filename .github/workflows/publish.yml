@@ -39,8 +39,13 @@ jobs:
         uses: docker/metadata-action@96383f45573cb7f253c731d3b3ab81c87ef81934
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          flavor: |
-            suffix=-${{ matrix.flavor }}
+          flavor: latest=false
+          tags: |
+            type=semver,pattern={{version}}-${{ matrix.flavor }}
+            type=raw,value=latest-${{ matrix.flavor }}
+            
+            type=semver,pattern={{version}},enable=${{ matrix.flavor == 'debian' }}
+            type=raw,value=latest,enable=${{ matrix.flavor == 'debian' }}
 
       - name: Build and push Docker image (${{ matrix.flavor }})
         uses: docker/build-push-action@0565240e2d4ab88bba5387d719585280857ece09
