@@ -4,7 +4,7 @@ This repository provides a Dockerized version of the [CrowdSec Firewall Bouncer]
 
 ## Features
 - Supports **nftables** only.
-- Officially supports **Debian**, but **Alpine** has been tested and works without issues.
+- Crowdsec officially supports only **Debian**, but **Alpine** has been tested and works without issues.
 - Allows environment variable substitution in the passed configuration file.
 
 ## Requirements
@@ -18,7 +18,7 @@ Below is an example `docker-compose.yml` configuration for deploying the firewal
 
 ```yaml
 services:
-  firewall-bouncer:
+  crowdsec-firewall-bouncer:
     image: ghcr.io/shgew/cs-firewall-bouncer-docker:latest
     container_name: crowdsec-firewall-bouncer
     network_mode: host
@@ -39,7 +39,7 @@ The configuration file must be mapped to `/config/crowdsec-firewall-bouncer.yaml
 A good starting point: https://github.com/crowdsecurity/cs-firewall-bouncer/blob/main/config/crowdsec-firewall-bouncer.yaml
 
 ## Usage
-1. Create a valid `docker-compose.yml` configuration file.
+1. Create a valid `docker-compose.yml` configuration file, choosing one of the images from the [published package](https://github.com/shgew/cs-firewall-bouncer-docker/pkgs/container/cs-firewall-bouncer-docker).
 2. Create a valid `crowdsec-firewall-bouncer.yaml` configuration file inside the `config` directory.
 3. Start the container using Docker Compose:
    ```sh
