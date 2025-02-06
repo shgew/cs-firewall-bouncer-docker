@@ -1,4 +1,4 @@
-name: Docker Image CI
+name: Docker Build
 
 on:
   push:
@@ -11,13 +11,12 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        include:
-          - flavor: alpine
-            dockerfile: Dockerfile.alpine
-          - flavor: debian
-            dockerfile: Dockerfile.debian
+        flavor: 
+          - alpine
+          - debian
+
     steps:
       - uses: actions/checkout@v4
       - name: Build Docker image (${{ matrix.flavor }})
         run: |
-          docker build . --file ${{ matrix.dockerfile }} --tag cs-firewall-bouncer:${{ matrix.flavor }}-$(date +%s)
+          docker build . --file Dockerfile.${{ matrix.flavor }} --tag cs-firewall-bouncer:${{ matrix.flavor }}-$(date +%s)
