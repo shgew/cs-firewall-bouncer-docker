@@ -4,7 +4,7 @@ This repository provides a Dockerized version of the [CrowdSec Firewall Bouncer]
 
 ## Features
 - Supports **nftables** only.
-- Crowdsec officially supports only **Debian**, but **Alpine** has been tested and works without issues.
+- Provides **Debian** and **Alpine** images. Crowdsec officially supports only **Debian**, but **Alpine** has been tested and works without issues.
 - Allows environment variable substitution in the passed configuration file.
 
 ## Requirements
