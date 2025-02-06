@@ -50,6 +50,11 @@ A good starting point: https://github.com/crowdsecurity/cs-firewall-bouncer/blob
    docker logs -f crowdsec-firewall-bouncer
    ```
 
+   The fact that the table entries have been propagated to the host can be verified by running
+   ```sh
+   nft -a list ruleset
+   ```
+
 ## Notes
 - This container is built primarily for systems that cannot install the firewall package directly, such as **TrueNAS Scale**.
 - If you encounter any issues, please check the logs and ensure all environment variables are set correctly.
