@@ -22,6 +22,10 @@ services:
     network_mode: host
     cap_add:
       - NET_ADMIN
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     environment:
       API_URL: ${API_URL}
       API_KEY: ${API_KEY}
