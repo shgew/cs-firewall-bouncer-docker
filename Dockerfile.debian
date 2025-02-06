@@ -8,7 +8,7 @@ RUN apt-get update && apt-get install -y \
 # Install crowdsec-firewall-bouncer    
 RUN curl -s https://install.crowdsec.net | sh && \
     apt-get update && \
-    apt-get install -y crowdsec-firewall-bouncer && \
+    apt-get install -y crowdsec-firewall-bouncer-nftables && \
     rm -rf /var/lib/apt/lists/*
 
 COPY entrypoint.sh /entrypoint.sh
