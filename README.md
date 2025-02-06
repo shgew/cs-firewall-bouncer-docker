@@ -48,11 +48,6 @@ A good starting point: https://github.com/crowdsecurity/cs-firewall-bouncer/blob
    docker logs -f crowdsec-firewall-bouncer
    ```
 
-   The fact that the table entries have been propagated to the host can be verified by running
-   ```sh
-   nft -a list ruleset
-   ```
-
 ## License
 This project is licensed under the MIT License.
 
