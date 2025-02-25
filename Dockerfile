@@ -4,7 +4,11 @@ ARG TARGETARCH
 ARG CS_FIREWALL_BOUNCER_VERSION
 
 # Install dependencies
-RUN apk add --no-cache envsubst
+RUN apk add --no-cache \
+    # for the firewall
+    nftables ipset iptables \
+    # for templating
+    envsubst
 
 # Install the firewall
 RUN wget -qO - \
