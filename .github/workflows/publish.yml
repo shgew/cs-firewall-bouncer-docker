@@ -8,7 +8,6 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
   PLATFORMS: linux/amd64,linux/arm64
-  CS_FIREWALL_BOUNCER_VERSION: ${{ github.event.release.tag_name }}
 
 jobs:
   publish:
@@ -47,4 +46,4 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            CS_FIREWALL_BOUNCER_VERSION=${{ env.CS_FIREWALL_BOUNCER_VERSION }}
+            CS_FIREWALL_BOUNCER_VERSION=$(cat FIREWALL_BOUNCER_VERSION)
