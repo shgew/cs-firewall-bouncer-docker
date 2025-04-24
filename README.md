@@ -8,7 +8,7 @@ This repository provides a Dockerized version of the [CrowdSec Firewall Bouncer]
 ## Requirements
 For the container to function correctly, the following settings are required:
 - `network_mode: host`
-- `cap_add: NET_ADMIN`
+- `cap_add: [NET_ADMIN, NET_RAW]`
 - A valid configuration file mapped to `/config/crowdsec-firewall-bouncer.yaml`.
 
 ## Docker Compose Example
@@ -22,8 +22,7 @@ services:
     network_mode: host
     cap_add:
       - NET_ADMIN
-    cap_drop:
-      - ALL
+      - NET_RAW
     security_opt:
       - no-new-privileges:true
     environment:
