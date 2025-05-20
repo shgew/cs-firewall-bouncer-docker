@@ -1,0 +1,73 @@
+name: Check Upstream Release
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'  # Run every 6 hours
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  check-and-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Needed to create releases
+      
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for properly checking tags
+      
+      - name: Get current version
+        id: current_version
+        run: |
+          CURRENT_VERSION=$(cat version.txt)
+          echo "Current version: $CURRENT_VERSION"
+          echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+      
+      - name: Get latest release from upstream
+        id: upstream_release
+        run: |
+          LATEST_VERSION=$(curl -s "https://api.github.com/repos/crowdsecurity/cs-firewall-bouncer/releases/latest" | jq -r '.tag_name')
+          echo "Latest upstream version: $LATEST_VERSION"
+          echo "latest_version=$LATEST_VERSION" >> $GITHUB_OUTPUT
+      
+      - name: Compare versions
+        id: compare
+        run: |
+          CURRENT_VERSION="${{ steps.current_version.outputs.current_version }}"
+          LATEST_VERSION="${{ steps.upstream_release.outputs.latest_version }}"
+          
+          if [ "$CURRENT_VERSION" != "$LATEST_VERSION" ]; then
+            echo "New version available: $LATEST_VERSION (current: $CURRENT_VERSION)"
+            echo "new_version_available=true" >> $GITHUB_OUTPUT
+          else
+            echo "Already using the latest version"
+            echo "new_version_available=false" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Update version file
+        if: steps.compare.outputs.new_version_available == 'true'
+        run: |
+          echo "${{ steps.upstream_release.outputs.latest_version }}" > version.txt
+          
+      - name: Commit changes
+        if: steps.compare.outputs.new_version_available == 'true'
+        run: |
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "actions@github.com"
+          git add version.txt
+          git commit -m "Update to upstream version ${{ steps.upstream_release.outputs.latest_version }}"
+          git push
+          
+      - name: Create Release
+        if: steps.compare.outputs.new_version_available == 'true'
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ steps.upstream_release.outputs.latest_version }}
+          name: Release ${{ steps.upstream_release.outputs.latest_version }}
+          body: |
+            This release corresponds to CrowdSec Firewall Bouncer version ${{ steps.upstream_release.outputs.latest_version }}
+            
+            For more information, see the [upstream release](https://github.com/crowdsecurity/cs-firewall-bouncer/releases/tag/${{ steps.upstream_release.outputs.latest_version }}).
+          draft: false
+          prerelease: false 

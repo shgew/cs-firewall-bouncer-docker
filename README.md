@@ -4,6 +4,8 @@ This repository provides a Dockerized version of the [CrowdSec Firewall Bouncer]
 
 ## Features
 - Allows environment variable substitution in the passed configuration file.
+- Automatically updates to match new upstream releases via GitHub Actions.
+- Uses a simple `version.txt` file to track the current upstream version.
 
 ## Requirements
 For the container to function correctly, the following settings are required:
