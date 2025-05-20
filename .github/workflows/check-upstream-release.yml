@@ -59,6 +59,7 @@ jobs:
         if: steps.compare.outputs.new_version_available == 'true'
         run: |
           echo "${{ steps.upstream_release.outputs.latest_version }}" > version.txt
+          cat version.txt
           
       - name: Commit changes
         if: steps.compare.outputs.new_version_available == 'true'
@@ -88,6 +89,7 @@ jobs:
           
       - name: Create Release
         if: steps.compare.outputs.new_version_available == 'true' && steps.check_release.outputs.release_exists == 'false'
+        id: create_release
         uses: ncipollo/release-action@v1
         with:
           tag: ${{ steps.upstream_release.outputs.latest_version }}
@@ -97,4 +99,14 @@ jobs:
             
             For more information, see the [upstream release](https://github.com/crowdsecurity/cs-firewall-bouncer/releases/tag/${{ steps.upstream_release.outputs.latest_version }}).
           draft: false
-          prerelease: false 
+          prerelease: false
+
+      - name: Debug release creation
+        if: steps.compare.outputs.new_version_available == 'true' && steps.check_release.outputs.release_exists == 'false'
+        run: |
+          echo "Release created with tag ${{ steps.upstream_release.outputs.latest_version }}"
+          echo "The publish workflow should be triggered automatically"
+          # List all workflows in the repo
+          echo "Available workflows:"
+          curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/workflows" | jq -r '.workflows[] | .name + " (path: " + .path + ", state: " + .state + ")"' 
