@@ -24,11 +24,21 @@ jobs:
           echo "Current version: $CURRENT_VERSION"
           echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
       
-      - name: Get latest release from upstream
+      - name: Get highest version tag from upstream
         id: upstream_release
         run: |
-          LATEST_VERSION=$(curl -s "https://api.github.com/repos/crowdsecurity/cs-firewall-bouncer/releases/latest" | jq -r '.tag_name')
-          echo "Latest upstream version: $LATEST_VERSION"
+          # Fetch all tags from the upstream repository
+          TAGS=$(curl -s "https://api.github.com/repos/crowdsecurity/cs-firewall-bouncer/tags" | jq -r '.[].name' | grep -E "^v[0-9]+\.[0-9]+\.[0-9]+$" || echo "")
+          
+          if [ -z "$TAGS" ]; then
+            echo "No valid version tags found in the upstream repository"
+            exit 1
+          fi
+          
+          # Sort tags by version number (requires semver-sort)
+          LATEST_VERSION=$(echo "$TAGS" | sort -V | tail -n 1)
+          
+          echo "Highest upstream version tag: $LATEST_VERSION"
           echo "latest_version=$LATEST_VERSION" >> $GITHUB_OUTPUT
       
       - name: Compare versions
@@ -59,8 +69,25 @@ jobs:
           git commit -m "Update to upstream version ${{ steps.upstream_release.outputs.latest_version }}"
           git push
           
-      - name: Create Release
+      - name: Check if release tag exists
         if: steps.compare.outputs.new_version_available == 'true'
+        id: check_release
+        run: |
+          TAG="${{ steps.upstream_release.outputs.latest_version }}"
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/tags/$TAG")
+          
+          if [ "$HTTP_STATUS" -eq "200" ]; then
+            echo "Release with tag $TAG already exists. Skipping release creation."
+            echo "release_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "No release found with tag $TAG. Proceeding with release creation."
+            echo "release_exists=false" >> $GITHUB_OUTPUT
+          fi
+          
+      - name: Create Release
+        if: steps.compare.outputs.new_version_available == 'true' && steps.check_release.outputs.release_exists == 'false'
         uses: ncipollo/release-action@v1
         with:
           tag: ${{ steps.upstream_release.outputs.latest_version }}
