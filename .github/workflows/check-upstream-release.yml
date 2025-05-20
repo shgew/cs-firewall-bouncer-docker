@@ -2,8 +2,8 @@ name: Check Upstream Release
 
 on:
   schedule:
-    - cron: '0 */6 * * *'  # Run every 6 hours
-  workflow_dispatch:  # Allow manual triggering
+    - cron: '0 */6 * * *'  # every 6 hours
+  workflow_dispatch:
 
 jobs:
   check-and-release:
@@ -94,19 +94,10 @@ jobs:
         with:
           tag: ${{ steps.upstream_release.outputs.latest_version }}
           name: Release ${{ steps.upstream_release.outputs.latest_version }}
+          token: ${{ secrets.RELEASE_TOKEN }}
           body: |
             This release corresponds to CrowdSec Firewall Bouncer version ${{ steps.upstream_release.outputs.latest_version }}
             
             For more information, see the [upstream release](https://github.com/crowdsecurity/cs-firewall-bouncer/releases/tag/${{ steps.upstream_release.outputs.latest_version }}).
           draft: false
           prerelease: false
-
-      - name: Debug release creation
-        if: steps.compare.outputs.new_version_available == 'true' && steps.check_release.outputs.release_exists == 'false'
-        run: |
-          echo "Release created with tag ${{ steps.upstream_release.outputs.latest_version }}"
-          echo "The publish workflow should be triggered automatically"
-          # List all workflows in the repo
-          echo "Available workflows:"
-          curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/${{ github.repository }}/actions/workflows" | jq -r '.workflows[] | .name + " (path: " + .path + ", state: " + .state + ")"' 
