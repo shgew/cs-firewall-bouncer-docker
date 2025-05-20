@@ -2,8 +2,8 @@ name: Build and Publish Docker Image
 
 on:
   release:
-    types: [published, created]
-  workflow_dispatch:  # Allow manual triggering
+    types: [published]
+  workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
