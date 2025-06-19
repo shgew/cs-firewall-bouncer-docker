@@ -5,7 +5,6 @@ This repository provides a Dockerized version of the [CrowdSec Firewall Bouncer]
 ## Features
 - Allows environment variable substitution in the passed configuration file.
 - Automatically updates to match new upstream releases via GitHub Actions.
-- Uses a simple `version.txt` file to track the current upstream version.
 
 ## Requirements
 For the container to function correctly, the following settings are required:
@@ -41,6 +40,11 @@ The configuration file must be mapped to `/config/crowdsec-firewall-bouncer.yaml
 
 A good starting point: https://github.com/crowdsecurity/cs-firewall-bouncer/blob/main/config/crowdsec-firewall-bouncer.yaml
 
+### Firewall Backend
+Docker Engine currently manages container networking through `iptables`.
+
+Native `nftables` support is [not yet available](https://github.com/docker/for-linux/issues/1472), so the recommended backend for this image is `iptables`. 
+
 ## Usage
 1. Create a valid `docker-compose.yml` configuration file, choosing one of the tags from the [published image](https://github.com/shgew/cs-firewall-bouncer-docker/pkgs/container/cs-firewall-bouncer-docker).
 2. Create a valid `crowdsec-firewall-bouncer.yaml` configuration file inside the `config` directory.
@@ -55,4 +59,3 @@ A good starting point: https://github.com/crowdsecurity/cs-firewall-bouncer/blob
 
 ## License
 This project is licensed under the MIT License.
-
