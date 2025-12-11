@@ -41,10 +41,9 @@ The configuration file must be mapped to `/config/crowdsec-firewall-bouncer.yaml
 A good starting point: https://github.com/crowdsecurity/cs-firewall-bouncer/blob/main/config/crowdsec-firewall-bouncer.yaml
 
 ### Firewall Backend
-Docker Engine currently manages container networking through `iptables`. Native `nftables` support is [not yet available](https://github.com/docker/for-linux/issues/1472).
+Docker Engine manages container networking through `iptables` by default. Native `nftables` support is [experimental](https://docs.docker.com/engine/network/firewall-nftables/).
 
-While `nftables` backend should still work via a translation layer, the recommended backend for this image is `iptables`. 
-
+Insights and recommendations on which backend to choose can be found [here](https://github.com/shgew/cs-firewall-bouncer-docker/issues/6#issuecomment-3639805018).
 
 ## Usage
 1. Create a valid `docker-compose.yml` configuration file, choosing one of the tags from the [published image](https://github.com/shgew/cs-firewall-bouncer-docker/pkgs/container/cs-firewall-bouncer-docker).
