@@ -43,7 +43,7 @@ A good starting point: https://github.com/crowdsecurity/cs-firewall-bouncer/blob
 ### Firewall Backend
 Docker Engine manages container networking through `iptables` by default. Native `nftables` support is [experimental](https://docs.docker.com/engine/network/firewall-nftables/).
 
-Insights and recommendations on which backend to choose can be found [here](https://github.com/shgew/cs-firewall-bouncer-docker/issues/6#issuecomment-3639805018).
+Insights and recommendations on which backend to choose can be found [here](https://github.com/shgew/cs-firewall-bouncer-docker/issues/6).
 
 ## Usage
 1. Create a valid `docker-compose.yml` configuration file, choosing one of the tags from the [published image](https://github.com/shgew/cs-firewall-bouncer-docker/pkgs/container/cs-firewall-bouncer-docker).
