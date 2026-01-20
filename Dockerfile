@@ -24,7 +24,7 @@ RUN setcap cap_net_admin,cap_net_raw+ep /usr/sbin/xtables-nft-multi && \
     setcap cap_net_admin,cap_net_raw+ep /usr/sbin/ipset
 
 # needed so non-root user can create xtables lock file
-RUN chmod o+w /run
+RUN chmod 1777 /run
 
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
