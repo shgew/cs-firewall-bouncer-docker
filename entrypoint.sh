@@ -1,8 +1,8 @@
 #!/bin/sh
 
 # Replace environment variables in config
-mkdir -p /etc/crowdsec/bouncers
-envsubst < /config/crowdsec-firewall-bouncer.yaml > /etc/crowdsec/bouncers/crowdsec-firewall-bouncer.yaml
+mkdir -p /tmp/crowdsec
+envsubst < /config/crowdsec-firewall-bouncer.yaml > /tmp/crowdsec/crowdsec-firewall-bouncer.yaml
 
 # Start the bouncer
-exec crowdsec-firewall-bouncer -c /etc/crowdsec/bouncers/crowdsec-firewall-bouncer.yaml
+exec crowdsec-firewall-bouncer -c /tmp/crowdsec/crowdsec-firewall-bouncer.yaml
