@@ -35,6 +35,28 @@ services:
     restart: unless-stopped
 ```
 
+### Non-Root Setup
+The container can run as a non-root user. The required capabilities are applied to the binaries via file capabilities, so the container only needs the `NET_ADMIN` and `NET_RAW` capabilities.
+
+```yaml
+services:
+  crowdsec-firewall-bouncer:
+    image: ghcr.io/shgew/cs-firewall-bouncer-docker:latest
+    container_name: crowdsec-firewall-bouncer
+    network_mode: host
+    user: 1000:1000
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    environment:
+      API_URL: ${API_URL}
+      API_KEY: ${API_KEY}
+    volumes:
+      - ./config/crowdsec-firewall-bouncer.yaml:/config/crowdsec-firewall-bouncer.yaml:ro
+      - /etc/localtime:/etc/localtime:ro
+    restart: unless-stopped
+```
+
 ## Configuration
 The configuration file must be mapped to `/config/crowdsec-firewall-bouncer.yaml` inside the container. Additionally, any environment variables used within the configuration file will be automatically substituted with their corresponding values.
 
