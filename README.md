@@ -1,19 +1,20 @@
 # CrowdSec Firewall Bouncer Docker
 
-This repository provides a Dockerized version of the [CrowdSec Firewall Bouncer](https://github.com/crowdsecurity/cs-firewall-bouncer) and is based on Alpine linux.
+Docker image for [CrowdSec Firewall Bouncer](https://github.com/crowdsecurity/cs-firewall-bouncer), based on Alpine.
 
-## Features
-- Allows environment variable substitution in the passed configuration file.
-- Automatically updates to match new upstream releases via GitHub Actions.
+## What this image does
 
-## Requirements
-For the container to function correctly, the following settings are required:
+- Runs `crowdsec-firewall-bouncer` in a container.
+- Substitutes environment variables in `/config/crowdsec-firewall-bouncer.yaml` at startup.
+- Publishes multi-arch images (`amd64`, `arm64`) via GitHub Actions.
+
+## Runtime requirements
+
 - `network_mode: host`
 - `cap_add: [NET_ADMIN, NET_RAW]`
-- A valid configuration file mapped to `/config/crowdsec-firewall-bouncer.yaml`.
+- Config file mounted at `/config/crowdsec-firewall-bouncer.yaml`
 
-## Docker Compose Example
-Below is an example `docker-compose.yml` configuration for deploying the firewall bouncer:
+## Docker Compose
 
 ```yaml
 services:
@@ -21,10 +22,12 @@ services:
     image: ghcr.io/shgew/cs-firewall-bouncer-docker:latest
     container_name: crowdsec-firewall-bouncer
     network_mode: host
+    # Optional non-root mode:
+    # user: 1000:1000
     cap_add:
       - NET_ADMIN
       - NET_RAW
-    security_opt:
+    security_opt: # In non-root mode, remove this block.
       - no-new-privileges:true
     environment:
       API_URL: ${API_URL}
@@ -35,49 +38,49 @@ services:
     restart: unless-stopped
 ```
 
-### Non-Root Setup
-The container can run as a non-root user. The required capabilities are applied to the binaries via file capabilities, so the container only needs the `NET_ADMIN` and `NET_RAW` capabilities.
-
-```yaml
-services:
-  crowdsec-firewall-bouncer:
-    image: ghcr.io/shgew/cs-firewall-bouncer-docker:latest
-    container_name: crowdsec-firewall-bouncer
-    network_mode: host
-    user: 1000:1000
-    cap_add:
-      - NET_ADMIN
-      - NET_RAW
-    environment:
-      API_URL: ${API_URL}
-      API_KEY: ${API_KEY}
-    volumes:
-      - ./config/crowdsec-firewall-bouncer.yaml:/config/crowdsec-firewall-bouncer.yaml:ro
-      - /etc/localtime:/etc/localtime:ro
-    restart: unless-stopped
-```
-
 ## Configuration
-The configuration file must be mapped to `/config/crowdsec-firewall-bouncer.yaml` inside the container. Additionally, any environment variables used within the configuration file will be automatically substituted with their corresponding values.
 
-A good starting point: https://github.com/crowdsecurity/cs-firewall-bouncer/blob/main/config/crowdsec-firewall-bouncer.yaml
+Start from the upstream example config:
 
-### Firewall Backend
-Docker Engine manages container networking through `iptables` by default. Native `nftables` support is [experimental](https://docs.docker.com/engine/network/firewall-nftables/).
+- https://github.com/crowdsecurity/cs-firewall-bouncer/blob/main/config/crowdsec-firewall-bouncer.yaml
 
-Insights and recommendations on which backend to choose can be found [here](https://github.com/shgew/cs-firewall-bouncer-docker/issues/6).
+At startup, the entrypoint runs `envsubst` on the config file.
+Placeholders like `${API_KEY}` are replaced with values from container
+environment variables before the bouncer starts.
+
+Example:
+
+- Config template: `api_key: ${API_KEY}`
+- Container env: `API_KEY=abc123`
+- Final runtime config: `api_key: abc123`
 
 ## Usage
-1. Create a valid `docker-compose.yml` configuration file, choosing one of the tags from the [published image](https://github.com/shgew/cs-firewall-bouncer-docker/pkgs/container/cs-firewall-bouncer-docker).
-2. Create a valid `crowdsec-firewall-bouncer.yaml` configuration file inside the `config` directory.
-3. Start the container using Docker Compose:
-   ```sh
-   docker-compose up -d
-   ```
-4. Verify that the bouncer is running properly:
-   ```sh
-   docker logs -f crowdsec-firewall-bouncer
-   ```
+
+1. Choose an image tag from [published packages](https://github.com/shgew/cs-firewall-bouncer-docker/pkgs/container/cs-firewall-bouncer-docker).
+2. Create `./config/crowdsec-firewall-bouncer.yaml`.
+3. Start:
+
+```sh
+docker compose up -d
+```
+
+4. Check logs:
+
+```sh
+docker compose logs -f
+```
+
+## Release and version flow
+
+- `version.txt` pins the upstream `cs-firewall-bouncer` version used during image build.
+- Repository release tags can include internal suffixes (for example `v0.0.34+patch1`) without changing the pinned upstream binary version.
+
+## Firewall backend note
+
+Docker Engine uses `iptables` by default. Native `nftables` mode in Docker is still [experimental](https://docs.docker.com/engine/network/firewall-nftables/).
+
+More context on backend choice: https://github.com/shgew/cs-firewall-bouncer-docker/issues/6
 
 ## License
+
 This project is licensed under the MIT License.
