@@ -49,7 +49,7 @@ environment variables before the bouncer starts.
 
 Example:
 
-- Config template: `api_key: ${API_KEY}`
+- Config: `api_key: ${API_KEY}`
 - Container env: `API_KEY=abc123`
 - Final runtime config: `api_key: abc123`
 
