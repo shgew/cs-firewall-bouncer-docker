@@ -6,7 +6,6 @@ Docker image for [CrowdSec Firewall Bouncer](https://github.com/crowdsecurity/cs
 
 - Runs `crowdsec-firewall-bouncer` in a container.
 - Substitutes environment variables in `/config/crowdsec-firewall-bouncer.yaml` at startup.
-- Publishes multi-arch images (`amd64`, `arm64`) via GitHub Actions.
 
 ## Runtime requirements
 
