@@ -91,7 +91,7 @@ Build and smoke-test the stable image:
 docker build \
   --build-arg CS_FIREWALL_BOUNCER_VERSION=v0.0.34 \
   --build-arg CS_TARBALL_SHA256_AMD64=sha256:8b07e08fb35a90b33eb2403eb93966679b39adb42c9cd03882de66cdf19a949f \
-  --build-arg CS_TARBALL_SHA256_ARM64=sha256:41899de18ad928e89de26a6fcd46ae8c7cb9a3b95373e850335106db0bf727aa \
+  --build-arg CS_TARBALL_SHA256_ARM64=sha256:41899de18ad928e89de26a6fcd46ae8c7cb9a3b95369e850335106db0bf727aa \
   -t local/csfb:stable-test .
 scripts/smoke-test.sh local/csfb:stable-test v0.0.34
 ```
