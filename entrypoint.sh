@@ -1,8 +1,15 @@
 #!/bin/sh
+set -eu
 
-# Replace environment variables in config
+CONFIG_SRC="/config/crowdsec-firewall-bouncer.yaml"
+CONFIG_RENDERED="/tmp/crowdsec/crowdsec-firewall-bouncer.yaml"
+
+if [ ! -f "$CONFIG_SRC" ]; then
+    echo "ERROR: config not found at $CONFIG_SRC - mount it (see README)" >&2
+    exit 1
+fi
+
 mkdir -p /tmp/crowdsec
-envsubst < /config/crowdsec-firewall-bouncer.yaml > /tmp/crowdsec/crowdsec-firewall-bouncer.yaml
+envsubst < "$CONFIG_SRC" > "$CONFIG_RENDERED"
 
-# Start the bouncer
-exec crowdsec-firewall-bouncer -c /tmp/crowdsec/crowdsec-firewall-bouncer.yaml
+exec crowdsec-firewall-bouncer -c "$CONFIG_RENDERED"
