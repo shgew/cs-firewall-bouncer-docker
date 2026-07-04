@@ -34,6 +34,8 @@ services:
     image: ghcr.io/shgew/cs-firewall-bouncer-docker:stable
     container_name: crowdsec-firewall-bouncer
     network_mode: host
+    # To run as a non-root user, add: user: "1000:1000"
+    # and remove the security_opt block (no-new-privileges blocks file capabilities).
     cap_add:
       - NET_ADMIN
       - NET_RAW

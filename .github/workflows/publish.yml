@@ -39,8 +39,10 @@ jobs:
           SHA_AMD64=$(jq -r ".${CHANNEL}.tarballs.amd64" versions.json)
           SHA_ARM64=$(jq -r ".${CHANNEL}.tarballs.arm64" versions.json)
           TAGS=$(scripts/compute-tags.sh "${RELEASE_TAG}" "${PRERELEASE}" versions.json "${IMAGE_BASE}")
+          DOCKER_TAG=$(echo "${TAGS}" | head -n1 | cut -d: -f3-)
           {
             echo "version=${VERSION}"
+            echo "docker_tag=${DOCKER_TAG}"
             echo "sha_amd64=${SHA_AMD64}"
             echo "sha_arm64=${SHA_ARM64}"
             echo "tags<<ENDOFTAGS"
@@ -80,7 +82,7 @@ jobs:
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.description=CrowdSec Firewall Bouncer Docker image
             org.opencontainers.image.licenses=MIT
-            org.opencontainers.image.version=${{ steps.vars.outputs.version }}
+            org.opencontainers.image.version=${{ steps.vars.outputs.docker_tag }}
             org.opencontainers.image.revision=${{ github.sha }}
 
   dry-run:
