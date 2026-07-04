@@ -1,0 +1,1 @@
+[{"tag_name": "v0.0.33", "draft": false, "prerelease": false, "assets": [{"name": "crowdsec-firewall-bouncer-linux-amd64.tgz", "digest": "sha256:aaaa000000000000000000000000000000000000000000000000000000000000"}, {"name": "crowdsec-firewall-bouncer-linux-arm64.tgz", "digest": "sha256:bbbb000000000000000000000000000000000000000000000000000000000000"}]}]

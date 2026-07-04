@@ -1,0 +1,20 @@
+[
+  {
+    "tag_name": "v0.0.35-rc3",
+    "draft": false,
+    "prerelease": true,
+    "assets": [
+      {"name": "crowdsec-firewall-bouncer-linux-amd64.tgz", "digest": "sha256:37aa7b0c767861ade7fd054d93165ce2dbaabd2eaf9b41a59231931d63a0b00b"},
+      {"name": "crowdsec-firewall-bouncer-linux-arm64.tgz", "digest": "sha256:007d7bd9defc62b94ab3c9ba3e483cf4599aed0dd223887a0256bbd3fa3600e7"}
+    ]
+  },
+  {
+    "tag_name": "v0.0.34",
+    "draft": false,
+    "prerelease": false,
+    "assets": [
+      {"name": "crowdsec-firewall-bouncer-linux-amd64.tgz", "digest": "sha256:8b07e08fb35a90b33eb2403eb93966679b39adb42c9cd03882de66cdf19a949f"},
+      {"name": "crowdsec-firewall-bouncer-linux-arm64.tgz", "digest": "sha256:41899de18ad928e89de26a6fcd46ae8c7cb9a3b95369e850335106db0bf727aa"}
+    ]
+  }
+]
