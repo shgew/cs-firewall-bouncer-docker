@@ -2,92 +2,136 @@ name: Check Upstream Release
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # once a day
+    - cron: '0 0 * * *'
   workflow_dispatch:
+    inputs:
+      dry_run:
+        type: boolean
+        default: false
+
+concurrency:
+  group: upstream-sync
+  cancel-in-progress: false
 
 jobs:
   check-and-release:
     runs-on: ubuntu-latest
     permissions:
-      contents: write  # Needed to create releases
+      contents: write
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
 
-      - name: Get current version
-        id: current_version
-        run: |
-          CURRENT_VERSION=$(cat version.txt)
-          echo "Current version: $CURRENT_VERSION"
-          echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
-
-      - name: Check for new upstream version
-        id: upstream
+      - name: Fetch upstream releases
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          CURRENT_VERSION="${{ steps.current_version.outputs.current_version }}"
+          gh api --paginate repos/crowdsecurity/cs-firewall-bouncer/releases --jq '.[]' | jq -s '.' > /tmp/releases.json
 
-          LATEST_VERSION=$(gh api --paginate repos/crowdsecurity/cs-firewall-bouncer/tags \
-            --jq '.[].name' | grep -E "^v[0-9]+\.[0-9]+\.[0-9]+$" | sort -V | tail -n 1)
+      - name: Resolve new channel heads
+        run: |
+          scripts/resolve-upstream.sh /tmp/releases.json versions.json > /tmp/new-versions.json
 
-          if [ -z "$LATEST_VERSION" ]; then
-            echo "No valid version tags found in the upstream repository"
+      - name: Detect changes
+        id: detect
+        run: |
+          STABLE_OLD=$(jq -r '.stable.version' versions.json)
+          STABLE_NEW=$(jq -r '.stable.version' /tmp/new-versions.json)
+          RC_OLD=$(jq -r '.rc.version' versions.json)
+          RC_NEW=$(jq -r '.rc.version' /tmp/new-versions.json)
+          STABLE_CHANGED=false
+          RC_CHANGED=false
+          if [ "$STABLE_OLD" != "$STABLE_NEW" ]; then STABLE_CHANGED=true; fi
+          if [ "$RC_OLD" != "$RC_NEW" ]; then RC_CHANGED=true; fi
+          {
+            echo "stable_old=${STABLE_OLD}"
+            echo "stable_new=${STABLE_NEW}"
+            echo "rc_old=${RC_OLD}"
+            echo "rc_new=${RC_NEW}"
+            echo "stable_changed=${STABLE_CHANGED}"
+            echo "rc_changed=${RC_CHANGED}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Dry-run summary
+        if: ${{ inputs.dry_run }}
+        run: |
+          {
+            echo "## Dry-run: planned changes"
+            echo "- stable: ${{ steps.detect.outputs.stable_old }} -> ${{ steps.detect.outputs.stable_new }} (changed: ${{ steps.detect.outputs.stable_changed }})"
+            echo "- rc: ${{ steps.detect.outputs.rc_old }} -> ${{ steps.detect.outputs.rc_new }} (changed: ${{ steps.detect.outputs.rc_changed }})"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Check if anything changed
+        if: ${{ !inputs.dry_run && steps.detect.outputs.stable_changed == 'false' && steps.detect.outputs.rc_changed == 'false' }}
+        run: |
+          echo "No channel changes detected, nothing to do."
+
+      - name: Commit updated versions.json
+        if: ${{ !inputs.dry_run && (steps.detect.outputs.stable_changed == 'true' || steps.detect.outputs.rc_changed == 'true') }}
+        run: |
+          cp /tmp/new-versions.json versions.json
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "actions@github.com"
+          git add versions.json
+          STABLE_CHANGED="${{ steps.detect.outputs.stable_changed }}"
+          RC_CHANGED="${{ steps.detect.outputs.rc_changed }}"
+          STABLE_NEW="${{ steps.detect.outputs.stable_new }}"
+          RC_NEW="${{ steps.detect.outputs.rc_new }}"
+          if [ "$STABLE_CHANGED" = "true" ] && [ "$RC_CHANGED" = "true" ]; then
+            git commit -m "Update stable to ${STABLE_NEW}, rc to ${RC_NEW}"
+          elif [ "$STABLE_CHANGED" = "true" ]; then
+            git commit -m "Update stable to ${STABLE_NEW}"
+          else
+            git commit -m "Update rc to ${RC_NEW}"
+          fi
+          git push
+          echo "SYNC_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Create stable release
+        if: ${{ !inputs.dry_run && steps.detect.outputs.stable_changed == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        run: |
+          TAG="${{ steps.detect.outputs.stable_new }}"
+          TAG_SHA=$(git ls-remote origin "refs/tags/${TAG}" "refs/tags/${TAG}^{}" | \
+            awk -v ref="refs/tags/${TAG}" '$2 == ref "^{}" { peeled=$1 } $2 == ref { plain=$1 } END { print (peeled != "" ? peeled : plain) }')
+          if [ -z "$TAG_SHA" ]; then
+            gh release create "$TAG" \
+              --target "$SYNC_SHA" \
+              --title "$TAG" \
+              --notes "This release tracks CrowdSec Firewall Bouncer [${TAG}](https://github.com/crowdsecurity/cs-firewall-bouncer/releases/tag/${TAG})."
+          elif [ "$TAG_SHA" = "$SYNC_SHA" ]; then
+            gh release view "$TAG" > /dev/null 2>&1 || \
+              gh release create "$TAG" \
+                --title "$TAG" \
+                --notes "This release tracks CrowdSec Firewall Bouncer [${TAG}](https://github.com/crowdsecurity/cs-firewall-bouncer/releases/tag/${TAG})."
+          else
+            echo "ERROR: tag ${TAG} exists at ${TAG_SHA}, expected ${SYNC_SHA} - resolve manually" >&2
             exit 1
           fi
 
-          echo "Highest upstream version tag: $LATEST_VERSION"
-          echo "latest_version=$LATEST_VERSION" >> $GITHUB_OUTPUT
-
-          if [ "$CURRENT_VERSION" != "$LATEST_VERSION" ]; then
-            echo "New version available: $LATEST_VERSION (current: $CURRENT_VERSION)"
-            echo "new_version_available=true" >> $GITHUB_OUTPUT
-          else
-            echo "Already using the latest version"
-            echo "new_version_available=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Update version file
-        if: steps.upstream.outputs.new_version_available == 'true'
-        run: |
-          echo "${{ steps.upstream.outputs.latest_version }}" > version.txt
-          cat version.txt
-
-      - name: Commit changes
-        if: steps.upstream.outputs.new_version_available == 'true'
-        run: |
-          git config --global user.name "GitHub Actions Bot"
-          git config --global user.email "actions@github.com"
-          git add version.txt
-          git commit -m "Update to upstream ${{ steps.upstream.outputs.latest_version }}"
-          git push
-
-      - name: Check if release tag exists
-        if: steps.upstream.outputs.new_version_available == 'true'
-        id: check_release
+      - name: Create rc release
+        if: ${{ !inputs.dry_run && steps.detect.outputs.rc_changed == 'true' && steps.detect.outputs.rc_new != steps.detect.outputs.stable_new }}
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         run: |
-          TAG="${{ steps.upstream.outputs.latest_version }}"
-          if gh release view "$TAG" --repo "${{ github.repository }}" > /dev/null 2>&1; then
-            echo "Release with tag $TAG already exists. Skipping release creation."
-            echo "release_exists=true" >> $GITHUB_OUTPUT
+          TAG="${{ steps.detect.outputs.rc_new }}"
+          TAG_SHA=$(git ls-remote origin "refs/tags/${TAG}" "refs/tags/${TAG}^{}" | \
+            awk -v ref="refs/tags/${TAG}" '$2 == ref "^{}" { peeled=$1 } $2 == ref { plain=$1 } END { print (peeled != "" ? peeled : plain) }')
+          if [ -z "$TAG_SHA" ]; then
+            gh release create "$TAG" \
+              --target "$SYNC_SHA" \
+              --prerelease \
+              --title "$TAG" \
+              --notes "This release tracks CrowdSec Firewall Bouncer [${TAG}](https://github.com/crowdsecurity/cs-firewall-bouncer/releases/tag/${TAG}) (release candidate)."
+          elif [ "$TAG_SHA" = "$SYNC_SHA" ]; then
+            gh release view "$TAG" > /dev/null 2>&1 || \
+              gh release create "$TAG" \
+                --prerelease \
+                --title "$TAG" \
+                --notes "This release tracks CrowdSec Firewall Bouncer [${TAG}](https://github.com/crowdsecurity/cs-firewall-bouncer/releases/tag/${TAG}) (release candidate)."
           else
-            echo "No release found with tag $TAG. Proceeding with release creation."
-            echo "release_exists=false" >> $GITHUB_OUTPUT
+            echo "ERROR: tag ${TAG} exists at ${TAG_SHA}, expected ${SYNC_SHA} - resolve manually" >&2
+            exit 1
           fi
-
-      - name: Create Release
-        if: steps.upstream.outputs.new_version_available == 'true' && steps.check_release.outputs.release_exists == 'false'
-        uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd # v1
-        with:
-          tag: ${{ steps.upstream.outputs.latest_version }}
-          name: ${{ steps.upstream.outputs.latest_version }}
-          token: ${{ secrets.RELEASE_TOKEN }}
-          body: |
-            This release corresponds to CrowdSec Firewall Bouncer version ${{ steps.upstream.outputs.latest_version }}
-
-            For more information, see the [upstream release](https://github.com/crowdsecurity/cs-firewall-bouncer/releases/tag/${{ steps.upstream.outputs.latest_version }}).
-          draft: false
-          prerelease: false
