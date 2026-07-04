@@ -1,0 +1,6 @@
+mode: iptables
+api_url: ${API_URL}
+api_key: ${API_KEY}
+update_frequency: 10s
+log_mode: stdout
+log_level: info
