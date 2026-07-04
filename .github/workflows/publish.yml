@@ -12,19 +12,44 @@ env:
 
 jobs:
   publish:
+    if: github.event_name == 'release'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          ref: ${{ github.event.release.tag_name }}
 
-      - name: Read version file
-        id: version
+      - name: Resolve channel and build args
+        id: vars
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          PRERELEASE: ${{ github.event.release.prerelease }}
+          IMAGE_BASE: ghcr.io/${{ github.repository }}
         run: |
-          echo "cs_version=$(cat version.txt)" >> $GITHUB_OUTPUT
-          echo "Using CrowdSec Firewall Bouncer version: $(cat version.txt)"
+          if [ "${PRERELEASE}" = "true" ]; then
+            CHANNEL=rc
+          else
+            CHANNEL=stable
+          fi
+          VERSION=$(jq -r ".${CHANNEL}.version" versions.json)
+          SHA_AMD64=$(jq -r ".${CHANNEL}.tarballs.amd64" versions.json)
+          SHA_ARM64=$(jq -r ".${CHANNEL}.tarballs.arm64" versions.json)
+          TAGS=$(scripts/compute-tags.sh "${RELEASE_TAG}" "${PRERELEASE}" versions.json "${IMAGE_BASE}")
+          {
+            echo "version=${VERSION}"
+            echo "sha_amd64=${SHA_AMD64}"
+            echo "sha_arm64=${SHA_ARM64}"
+            echo "tags<<ENDOFTAGS"
+            echo "${TAGS}"
+            echo "ENDOFTAGS"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5
@@ -36,21 +61,84 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract Docker metadata
-        id: meta
-        uses: docker/metadata-action@80c7e94dd9b9319bd5eb7a0e0fe9291e23a2a2e9
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-
       - name: Build and push Docker image
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a
         with:
           context: .
           push: true
           platforms: ${{ env.PLATFORMS }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: ${{ steps.vars.outputs.tags }}
+          build-args: |
+            CS_FIREWALL_BOUNCER_VERSION=${{ steps.vars.outputs.version }}
+            CS_TARBALL_SHA256_AMD64=${{ steps.vars.outputs.sha_amd64 }}
+            CS_TARBALL_SHA256_ARM64=${{ steps.vars.outputs.sha_arm64 }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          provenance: mode=max
+          sbom: true
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.description=CrowdSec Firewall Bouncer Docker image
+            org.opencontainers.image.licenses=MIT
+            org.opencontainers.image.version=${{ steps.vars.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+
+  dry-run:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      matrix:
+        channel: [stable, rc]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+
+      - name: Validate versions.json
+        run: jq -e '.stable.version and .rc.version' versions.json
+
+      - name: Resolve channel vars
+        id: vars
+        env:
+          CHANNEL: ${{ matrix.channel }}
+        run: |
+          VERSION=$(jq -r ".${CHANNEL}.version" versions.json)
+          SHA_AMD64=$(jq -r ".${CHANNEL}.tarballs.amd64" versions.json)
+          SHA_ARM64=$(jq -r ".${CHANNEL}.tarballs.arm64" versions.json)
+          {
+            echo "version=${VERSION}"
+            echo "sha_amd64=${SHA_AMD64}"
+            echo "sha_arm64=${SHA_ARM64}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5
+
+      - name: Build (no push)
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a
+        with:
+          context: .
+          push: false
+          platforms: ${{ env.PLATFORMS }}
           build-args: |
-            CS_FIREWALL_BOUNCER_VERSION=${{ steps.version.outputs.cs_version }}
+            CS_FIREWALL_BOUNCER_VERSION=${{ steps.vars.outputs.version }}
+            CS_TARBALL_SHA256_AMD64=${{ steps.vars.outputs.sha_amd64 }}
+            CS_TARBALL_SHA256_ARM64=${{ steps.vars.outputs.sha_arm64 }}
+
+      - name: Dry-run summary
+        env:
+          CHANNEL: ${{ matrix.channel }}
+          VERSION: ${{ steps.vars.outputs.version }}
+          SHA_AMD64: ${{ steps.vars.outputs.sha_amd64 }}
+          SHA_ARM64: ${{ steps.vars.outputs.sha_arm64 }}
+        run: |
+          {
+            echo "## Dry-run: ${CHANNEL} channel"
+            echo "- Version: ${VERSION}"
+            echo "- AMD64 SHA: ${SHA_AMD64}"
+            echo "- ARM64 SHA: ${SHA_ARM64}"
+          } >> "$GITHUB_STEP_SUMMARY"
