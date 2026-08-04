@@ -82,7 +82,7 @@ The `RELEASE_TOKEN` repo secret (a PAT with `contents:write` scope) is required.
 
 `+patchN` means the container changed and the upstream binary did not. Run the "Cut Patch Release" workflow from the Actions tab, pick the channel, and describe what changed in the image. It reads the existing tags and picks the next number, so patch numbers are never typed by hand.
 
-The workflow refuses a channel head this repository has never released. Patch 1 of a version with no mirror release would be a mirror release wearing the wrong tag.
+The workflow refuses a channel head this repository has never released. Patch 1 of a version with no mirror release would be a mirror release wearing the wrong tag. It also refuses any ref other than the default branch, and releases from that branch's tip, because an older ref pins an older `versions.json` and would move `stable` and `latest` backwards.
 
 `scripts/release-plan.sh` rejects a release tag whose version is not the current channel head in `versions.json`, with `update versions.json first`.
 
