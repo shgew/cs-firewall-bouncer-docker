@@ -66,8 +66,9 @@ while IFS= read -r tag; do
   if [ "$suffix" = "$tag" ] || [[ ! "$suffix" =~ ^[0-9]+$ ]]; then
     continue
   fi
-  if [ "$suffix" -gt "$highest_patch" ]; then
-    highest_patch="$suffix"
+  patch_number="$((10#$suffix))"
+  if [ "$patch_number" -gt "$highest_patch" ]; then
+    highest_patch="$patch_number"
   fi
 done <<<"$tags"
 

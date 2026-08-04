@@ -5,6 +5,10 @@ on:
     types: [published]
   workflow_dispatch:
 
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
@@ -48,6 +52,7 @@ jobs:
           sha_amd64: ${{ steps.vars.outputs.sha_amd64 }}
           sha_arm64: ${{ steps.vars.outputs.sha_arm64 }}
           image_ref: local/csfb:publish-gate
+          platforms: ${{ env.PLATFORMS }}
 
       - name: Log into registry ${{ env.REGISTRY }}
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f
@@ -114,6 +119,7 @@ jobs:
           sha_amd64: ${{ steps.vars.outputs.sha_amd64 }}
           sha_arm64: ${{ steps.vars.outputs.sha_arm64 }}
           image_ref: local/csfb:${{ matrix.channel }}-dryrun
+          platforms: ${{ env.PLATFORMS }}
 
       - name: Dry-run summary
         env:

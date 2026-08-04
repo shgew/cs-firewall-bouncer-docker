@@ -18,7 +18,7 @@ Docker image for [CrowdSec Firewall Bouncer](https://github.com/crowdsecurity/cs
 | `vX.Y.Z-rcN` | Immutable release candidate |
 | `vX.Y.Z-patchN` | Image-only rebuild of `vX.Y.Z` (git tag `vX.Y.Z+patchN`) |
 
-`latest` never points at a release candidate. When one sync moves both channels to different versions, the two releases publish in sequence, so `rc` can trail `stable` by a few minutes.
+`latest` never points at a release candidate. When one sync moves both channels to different versions it creates two releases, each publishing in its own run, so `rc` and `stable` can briefly disagree.
 
 ## Runtime requirements
 
@@ -74,7 +74,7 @@ Channels come from the shape of the upstream tag, not from GitHub's prerelease c
 
 A repo release tag is the upstream tag, character for character. Mirroring an upstream release never adds a suffix, and `scripts/next-release-tag.sh mirror` refuses a version that is already tagged.
 
-Before the sync commits anything it builds both architectures and runs `scripts/smoke-test.sh` against the new version. A failed build or smoke test means no commit, no release, and no image.
+When a channel head changes, the sync builds both architectures and runs `scripts/smoke-test.sh` before it commits. A failed build or smoke test means no commit, no release, and no image. The smoke test executes the amd64 image; arm64 is built and checksum-verified but not run.
 
 The `RELEASE_TOKEN` repo secret (a PAT with `contents:write` scope) is required. GitHub does not trigger `release: published` workflow events for releases created with the default `GITHUB_TOKEN`, so releases must be created with a PAT.
 
@@ -112,7 +112,7 @@ git tag | scripts/next-release-tag.sh mirror stable versions.json -
 git tag | scripts/next-release-tag.sh patch stable versions.json -
 ```
 
-Every workflow has a dry run that stops short of writing anything. In the Actions tab: "Build and Publish Docker Image" via workflow dispatch builds and smoke-tests both channels without pushing; "Check Upstream Release" with `dry_run: true` resolves upstream and gates on a build without committing; "Cut Patch Release" with `dry_run: true` computes the tag and gates on a build without creating the release.
+Every workflow has a dry run that stops short of writing anything. In the Actions tab: "Build and Publish Docker Image" via workflow dispatch builds and smoke-tests both channels without pushing; "Check Upstream Release" with `dry_run: true` resolves upstream and, when a channel head actually moved, builds and smoke-tests it without committing; "Cut Patch Release" with `dry_run: true` computes the tag and gates on a build without creating the release.
 
 Post-release check:
 

@@ -28,6 +28,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.ref }}
 
       - name: Compute patch tag
         id: tag
@@ -38,8 +40,12 @@ jobs:
             | sed -e 's|.*refs/tags/||' -e 's|\^{}$||' \
             | sort -u > /tmp/existing-tags.txt
           TAG=$(scripts/next-release-tag.sh patch "$CHANNEL" versions.json /tmp/existing-tags.txt)
-          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-          echo "Next ${CHANNEL} patch tag: ${TAG}"
+          TARGET_SHA=$(git rev-parse HEAD)
+          {
+            echo "tag=${TAG}"
+            echo "target_sha=${TARGET_SHA}"
+          } >> "$GITHUB_OUTPUT"
+          echo "Next ${CHANNEL} patch tag: ${TAG} targeting ${TARGET_SHA}"
 
       - name: Resolve release plan
         id: plan
@@ -68,12 +74,13 @@ jobs:
         env:
           CHANNEL: ${{ inputs.channel }}
           RELEASE_TAG: ${{ steps.tag.outputs.tag }}
+          TARGET_SHA: ${{ steps.tag.outputs.target_sha }}
         run: |
           {
             echo "## Dry-run: planned patch release"
             echo "- channel: ${CHANNEL}"
             echo "- tag: ${RELEASE_TAG}"
-            echo "- target: ${GITHUB_SHA}"
+            echo "- target: ${TARGET_SHA}"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Create patch release
@@ -83,19 +90,20 @@ jobs:
           CHANNEL: ${{ inputs.channel }}
           RELEASE_TAG: ${{ steps.tag.outputs.tag }}
           RELEASE_NOTES: ${{ inputs.notes }}
+          TARGET_SHA: ${{ steps.tag.outputs.target_sha }}
         run: |
           UPSTREAM="${RELEASE_TAG%%+*}"
           NOTES="Container-only rebuild of CrowdSec Firewall Bouncer ${UPSTREAM}. The upstream binary is unchanged."$'\n\n'"${RELEASE_NOTES}"
           if [ "$CHANNEL" = "rc" ]; then
             gh release create "$RELEASE_TAG" \
-              --target "$GITHUB_SHA" \
+              --target "$TARGET_SHA" \
               --prerelease \
               --title "$RELEASE_TAG" \
               --notes "$NOTES"
           else
             gh release create "$RELEASE_TAG" \
-              --target "$GITHUB_SHA" \
+              --target "$TARGET_SHA" \
               --title "$RELEASE_TAG" \
               --notes "$NOTES"
           fi
-          echo "- created ${CHANNEL} patch release ${RELEASE_TAG}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- created ${CHANNEL} patch release ${RELEASE_TAG} at ${TARGET_SHA}" >> "$GITHUB_STEP_SUMMARY"

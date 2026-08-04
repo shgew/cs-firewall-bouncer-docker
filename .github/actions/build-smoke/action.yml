@@ -15,6 +15,10 @@ inputs:
     description: Local tag for the image under smoke test
     required: false
     default: local/csfb:gate
+  platforms:
+    description: Comma-separated build platforms
+    required: false
+    default: linux/amd64,linux/arm64
 
 runs:
   using: composite
@@ -30,7 +34,7 @@ runs:
       with:
         context: .
         push: false
-        platforms: linux/amd64,linux/arm64
+        platforms: ${{ inputs.platforms }}
         build-args: |
           CS_FIREWALL_BOUNCER_VERSION=${{ inputs.version }}
           CS_TARBALL_SHA256_AMD64=${{ inputs.sha_amd64 }}

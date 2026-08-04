@@ -46,6 +46,18 @@ setup() {
   [ "$output" = "v0.0.34+patch11" ]
 }
 
+@test "patch: reads a leading-zero suffix as decimal, not octal" {
+  run bash -c 'printf "v0.0.34\nv0.0.34+patch9\nv0.0.34+patch010\n" | scripts/next-release-tag.sh patch stable test/fixtures/versions-stable-behind-rc.json -'
+  [ "$status" -eq 0 ]
+  [ "$output" = "v0.0.34+patch11" ]
+}
+
+@test "patch: a leading-zero suffix outside octal range still counts" {
+  run bash -c 'printf "v0.0.34\nv0.0.34+patch08\n" | scripts/next-release-tag.sh patch stable test/fixtures/versions-stable-behind-rc.json -'
+  [ "$status" -eq 0 ]
+  [ "$output" = "v0.0.34+patch9" ]
+}
+
 @test "patch: ignores patch tags belonging to a different version" {
   run bash -c 'printf "v0.0.34\nv0.0.34-rc1+patch5\nv0.0.340+patch7\n" | scripts/next-release-tag.sh patch stable test/fixtures/versions-stable-behind-rc.json -'
   [ "$status" -eq 0 ]
