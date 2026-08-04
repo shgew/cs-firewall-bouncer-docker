@@ -51,6 +51,10 @@ jobs:
             echo "rc_new=${RC_NEW}"
             echo "stable_changed=${STABLE_CHANGED}"
             echo "rc_changed=${RC_CHANGED}"
+            echo "stable_sha_amd64=$(jq -r '.stable.tarballs.amd64' /tmp/new-versions.json)"
+            echo "stable_sha_arm64=$(jq -r '.stable.tarballs.arm64' /tmp/new-versions.json)"
+            echo "rc_sha_amd64=$(jq -r '.rc.tarballs.amd64' /tmp/new-versions.json)"
+            echo "rc_sha_arm64=$(jq -r '.rc.tarballs.arm64' /tmp/new-versions.json)"
           } >> "$GITHUB_OUTPUT"
 
       - name: Dry-run summary
@@ -62,22 +66,40 @@ jobs:
             echo "- rc: ${{ steps.detect.outputs.rc_old }} -> ${{ steps.detect.outputs.rc_new }} (changed: ${{ steps.detect.outputs.rc_changed }})"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Check if anything changed
+      - name: Gate new stable on a passing build and smoke test
+        if: ${{ steps.detect.outputs.stable_changed == 'true' }}
+        uses: ./.github/actions/build-smoke
+        with:
+          version: ${{ steps.detect.outputs.stable_new }}
+          sha_amd64: ${{ steps.detect.outputs.stable_sha_amd64 }}
+          sha_arm64: ${{ steps.detect.outputs.stable_sha_arm64 }}
+          image_ref: local/csfb:stable-gate
+
+      - name: Gate new rc on a passing build and smoke test
+        if: ${{ steps.detect.outputs.rc_changed == 'true' && steps.detect.outputs.rc_new != steps.detect.outputs.stable_new }}
+        uses: ./.github/actions/build-smoke
+        with:
+          version: ${{ steps.detect.outputs.rc_new }}
+          sha_amd64: ${{ steps.detect.outputs.rc_sha_amd64 }}
+          sha_arm64: ${{ steps.detect.outputs.rc_sha_arm64 }}
+          image_ref: local/csfb:rc-gate
+
+      - name: Report no changes
         if: ${{ !inputs.dry_run && steps.detect.outputs.stable_changed == 'false' && steps.detect.outputs.rc_changed == 'false' }}
-        run: |
-          echo "No channel changes detected, nothing to do."
+        run: echo "No channel changes detected, nothing to do."
 
       - name: Commit updated versions.json
         if: ${{ !inputs.dry_run && (steps.detect.outputs.stable_changed == 'true' || steps.detect.outputs.rc_changed == 'true') }}
+        env:
+          STABLE_CHANGED: ${{ steps.detect.outputs.stable_changed }}
+          RC_CHANGED: ${{ steps.detect.outputs.rc_changed }}
+          STABLE_NEW: ${{ steps.detect.outputs.stable_new }}
+          RC_NEW: ${{ steps.detect.outputs.rc_new }}
         run: |
           cp /tmp/new-versions.json versions.json
           git config --global user.name "GitHub Actions Bot"
           git config --global user.email "actions@github.com"
           git add versions.json
-          STABLE_CHANGED="${{ steps.detect.outputs.stable_changed }}"
-          RC_CHANGED="${{ steps.detect.outputs.rc_changed }}"
-          STABLE_NEW="${{ steps.detect.outputs.stable_new }}"
-          RC_NEW="${{ steps.detect.outputs.rc_new }}"
           if [ "$STABLE_CHANGED" = "true" ] && [ "$RC_CHANGED" = "true" ]; then
             git commit -m "Update stable to ${STABLE_NEW}, rc to ${RC_NEW}"
           elif [ "$STABLE_CHANGED" = "true" ]; then
@@ -88,50 +110,46 @@ jobs:
           git push
           echo "SYNC_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
-      - name: Create stable release
-        if: ${{ !inputs.dry_run && steps.detect.outputs.stable_changed == 'true' }}
+      - name: Create mirror releases
+        if: ${{ !inputs.dry_run && (steps.detect.outputs.stable_changed == 'true' || steps.detect.outputs.rc_changed == 'true') }}
         env:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          STABLE_CHANGED: ${{ steps.detect.outputs.stable_changed }}
+          RC_CHANGED: ${{ steps.detect.outputs.rc_changed }}
+          STABLE_NEW: ${{ steps.detect.outputs.stable_new }}
+          RC_NEW: ${{ steps.detect.outputs.rc_new }}
         run: |
-          TAG="${{ steps.detect.outputs.stable_new }}"
-          TAG_SHA=$(git ls-remote origin "refs/tags/${TAG}" "refs/tags/${TAG}^{}" | \
-            awk -v ref="refs/tags/${TAG}" '$2 == ref "^{}" { peeled=$1 } $2 == ref { plain=$1 } END { print (peeled != "" ? peeled : plain) }')
-          if [ -z "$TAG_SHA" ]; then
-            gh release create "$TAG" \
-              --target "$SYNC_SHA" \
-              --title "$TAG" \
-              --notes "This release tracks CrowdSec Firewall Bouncer [${TAG}](https://github.com/crowdsecurity/cs-firewall-bouncer/releases/tag/${TAG})."
-          elif [ "$TAG_SHA" = "$SYNC_SHA" ]; then
-            gh release view "$TAG" > /dev/null 2>&1 || \
-              gh release create "$TAG" \
-                --title "$TAG" \
-                --notes "This release tracks CrowdSec Firewall Bouncer [${TAG}](https://github.com/crowdsecurity/cs-firewall-bouncer/releases/tag/${TAG})."
-          else
-            echo "ERROR: tag ${TAG} exists at ${TAG_SHA}, expected ${SYNC_SHA} - resolve manually" >&2
-            exit 1
+          git ls-remote --tags origin \
+            | sed -e 's|.*refs/tags/||' -e 's|\^{}$||' \
+            | sort -u > /tmp/existing-tags.txt
+
+          channels=()
+          if [ "$STABLE_CHANGED" = "true" ]; then
+            channels+=(stable)
+          fi
+          if [ "$RC_CHANGED" = "true" ] && [ "$RC_NEW" != "$STABLE_NEW" ]; then
+            channels+=(rc)
+          fi
+          if [ "${#channels[@]}" -eq 0 ]; then
+            echo "rc head caught up with stable, the stable release covers both channels."
+            exit 0
           fi
 
-      - name: Create rc release
-        if: ${{ !inputs.dry_run && steps.detect.outputs.rc_changed == 'true' && steps.detect.outputs.rc_new != steps.detect.outputs.stable_new }}
-        env:
-          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
-        run: |
-          TAG="${{ steps.detect.outputs.rc_new }}"
-          TAG_SHA=$(git ls-remote origin "refs/tags/${TAG}" "refs/tags/${TAG}^{}" | \
-            awk -v ref="refs/tags/${TAG}" '$2 == ref "^{}" { peeled=$1 } $2 == ref { plain=$1 } END { print (peeled != "" ? peeled : plain) }')
-          if [ -z "$TAG_SHA" ]; then
-            gh release create "$TAG" \
-              --target "$SYNC_SHA" \
-              --prerelease \
-              --title "$TAG" \
-              --notes "This release tracks CrowdSec Firewall Bouncer [${TAG}](https://github.com/crowdsecurity/cs-firewall-bouncer/releases/tag/${TAG}) (release candidate)."
-          elif [ "$TAG_SHA" = "$SYNC_SHA" ]; then
-            gh release view "$TAG" > /dev/null 2>&1 || \
+          for channel in "${channels[@]}"; do
+            TAG=$(scripts/next-release-tag.sh mirror "$channel" versions.json /tmp/existing-tags.txt)
+            NOTES="This release mirrors CrowdSec Firewall Bouncer [${TAG}](https://github.com/crowdsecurity/cs-firewall-bouncer/releases/tag/${TAG}) with no container changes."
+            if [ "$channel" = "rc" ]; then
               gh release create "$TAG" \
+                --target "$SYNC_SHA" \
                 --prerelease \
                 --title "$TAG" \
-                --notes "This release tracks CrowdSec Firewall Bouncer [${TAG}](https://github.com/crowdsecurity/cs-firewall-bouncer/releases/tag/${TAG}) (release candidate)."
-          else
-            echo "ERROR: tag ${TAG} exists at ${TAG_SHA}, expected ${SYNC_SHA} - resolve manually" >&2
-            exit 1
-          fi
+                --notes "${NOTES} Release candidate: published to the rc channel only."
+            else
+              gh release create "$TAG" \
+                --target "$SYNC_SHA" \
+                --title "$TAG" \
+                --notes "$NOTES"
+            fi
+            echo "$TAG" >> /tmp/existing-tags.txt
+            echo "- created ${channel} release ${TAG}" >> "$GITHUB_STEP_SUMMARY"
+          done

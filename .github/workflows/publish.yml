@@ -23,38 +23,31 @@ jobs:
         with:
           ref: ${{ github.event.release.tag_name }}
 
-      - name: Resolve channel and build args
+      - name: Resolve release plan
         id: vars
         env:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
-          PRERELEASE: ${{ github.event.release.prerelease }}
           IMAGE_BASE: ghcr.io/${{ github.repository }}
         run: |
-          if [ "${PRERELEASE}" = "true" ]; then
-            CHANNEL=rc
-          else
-            CHANNEL=stable
-          fi
-          VERSION=$(jq -r ".${CHANNEL}.version" versions.json)
-          SHA_AMD64=$(jq -r ".${CHANNEL}.tarballs.amd64" versions.json)
-          SHA_ARM64=$(jq -r ".${CHANNEL}.tarballs.arm64" versions.json)
-          TAGS=$(scripts/compute-tags.sh "${RELEASE_TAG}" "${PRERELEASE}" versions.json "${IMAGE_BASE}")
-          DOCKER_TAG=$(echo "${TAGS}" | head -n1 | cut -d: -f3-)
+          PLAN=$(scripts/release-plan.sh "${RELEASE_TAG}" versions.json "${IMAGE_BASE}")
+          echo "$PLAN"
           {
-            echo "version=${VERSION}"
-            echo "docker_tag=${DOCKER_TAG}"
-            echo "sha_amd64=${SHA_AMD64}"
-            echo "sha_arm64=${SHA_ARM64}"
+            echo "version=$(jq -r '.version' <<<"$PLAN")"
+            echo "docker_tag=$(jq -r '.docker_tag' <<<"$PLAN")"
+            echo "sha_amd64=$(jq -r '.tarballs.amd64' <<<"$PLAN")"
+            echo "sha_arm64=$(jq -r '.tarballs.arm64' <<<"$PLAN")"
             echo "tags<<ENDOFTAGS"
-            echo "${TAGS}"
+            jq -r '.image_tags[]' <<<"$PLAN"
             echo "ENDOFTAGS"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c
+      - name: Gate the release on a passing build and smoke test
+        uses: ./.github/actions/build-smoke
+        with:
+          version: ${{ steps.vars.outputs.version }}
+          sha_amd64: ${{ steps.vars.outputs.sha_amd64 }}
+          sha_arm64: ${{ steps.vars.outputs.sha_arm64 }}
+          image_ref: local/csfb:publish-gate
 
       - name: Log into registry ${{ env.REGISTRY }}
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f
@@ -114,22 +107,13 @@ jobs:
             echo "sha_arm64=${SHA_ARM64}"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c
-
-      - name: Build (no push)
-        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a
+      - name: Build and smoke-test
+        uses: ./.github/actions/build-smoke
         with:
-          context: .
-          push: false
-          platforms: ${{ env.PLATFORMS }}
-          build-args: |
-            CS_FIREWALL_BOUNCER_VERSION=${{ steps.vars.outputs.version }}
-            CS_TARBALL_SHA256_AMD64=${{ steps.vars.outputs.sha_amd64 }}
-            CS_TARBALL_SHA256_ARM64=${{ steps.vars.outputs.sha_arm64 }}
+          version: ${{ steps.vars.outputs.version }}
+          sha_amd64: ${{ steps.vars.outputs.sha_amd64 }}
+          sha_arm64: ${{ steps.vars.outputs.sha_arm64 }}
+          image_ref: local/csfb:${{ matrix.channel }}-dryrun
 
       - name: Dry-run summary
         env:

@@ -18,7 +18,7 @@ Docker image for [CrowdSec Firewall Bouncer](https://github.com/crowdsecurity/cs
 | `vX.Y.Z-rcN` | Immutable release candidate |
 | `vX.Y.Z-patchN` | Image-only rebuild of `vX.Y.Z` (git tag `vX.Y.Z+patchN`) |
 
-`latest` never points at a release candidate. The `rc` alias may lag a few minutes while both channels publish after a sync.
+`latest` never points at a release candidate. When one sync moves both channels to different versions, the two releases publish in sequence, so `rc` can trail `stable` by a few minutes.
 
 ## Runtime requirements
 
@@ -65,19 +65,26 @@ Example:
 
 ## Release flow
 
-A daily sync reads upstream releases (stable and prereleases), pins versions and per-arch sha256 checksums into `versions.json`, commits, and creates a repo release. A prerelease-flagged release triggers the RC channel build; a normal release triggers the stable channel build.
+A daily sync reads the upstream release list, picks the head of each channel, and pins the version plus per-arch tarball sha256 into `versions.json`.
+
+Channels come from the shape of the upstream tag, not from GitHub's prerelease checkbox. Upstream sets that flag inconsistently (`v0.0.32` and `v0.0.36` are both bare releases flagged as prereleases), so it is ignored.
+
+- `vX.Y.Z` is the stable channel head, and the rc head too when it is the newest upstream tag.
+- `vX.Y.Z-rcN` is the rc channel head.
+
+A repo release tag is the upstream tag, character for character. Mirroring an upstream release never adds a suffix, and `scripts/next-release-tag.sh mirror` refuses a version that is already tagged.
+
+Before the sync commits anything it builds both architectures and runs `scripts/smoke-test.sh` against the new version. A failed build or smoke test means no commit, no release, and no image.
 
 The `RELEASE_TOKEN` repo secret (a PAT with `contents:write` scope) is required. GitHub does not trigger `release: published` workflow events for releases created with the default `GITHUB_TOKEN`, so releases must be created with a PAT.
 
 ## Patch releases
 
-To rebuild an image for an existing upstream version without changing the upstream binary:
+`+patchN` means the container changed and the upstream binary did not. Run the "Cut Patch Release" workflow from the Actions tab, pick the channel, and describe what changed in the image. It reads the existing tags and picks the next number, so patch numbers are never typed by hand.
 
-1. Ensure `versions.json` has the target version as the channel head.
-2. Tag the commit as `vX.Y.Z+patchN` (stable) or `vX.Y.Z-rcN+patchM` (RC, created as prerelease).
-3. Create a GitHub release from that tag.
+The workflow refuses a channel head this repository has never released. Patch 1 of a version with no mirror release would be a mirror release wearing the wrong tag.
 
-The publish workflow rejects patches of non-head versions with `update versions.json first`.
+`scripts/release-plan.sh` rejects a release tag whose version is not the current channel head in `versions.json`, with `update versions.json first`.
 
 ## Local testing
 
@@ -91,16 +98,21 @@ Build and smoke-test the stable image:
 
 ```sh
 docker build \
-  --build-arg CS_FIREWALL_BOUNCER_VERSION=v0.0.34 \
-  --build-arg CS_TARBALL_SHA256_AMD64=sha256:8b07e08fb35a90b33eb2403eb93966679b39adb42c9cd03882de66cdf19a949f \
-  --build-arg CS_TARBALL_SHA256_ARM64=sha256:41899de18ad928e89de26a6fcd46ae8c7cb9a3b95369e850335106db0bf727aa \
+  --build-arg CS_FIREWALL_BOUNCER_VERSION=v0.0.36 \
+  --build-arg CS_TARBALL_SHA256_AMD64=sha256:f86e4b72693549d99f40a9402abefb894108f047a3fbe6e72fada25ee17ce88b \
+  --build-arg CS_TARBALL_SHA256_ARM64=sha256:ce184d3b1ae5888189d237bb0ff1d2414be2ef12729750a7321a4abd2d253de6 \
   -t local/csfb:stable-test .
-scripts/smoke-test.sh local/csfb:stable-test v0.0.34
+scripts/smoke-test.sh local/csfb:stable-test v0.0.36
 ```
 
-Dry-run the publish workflow (builds both channels without pushing): open the Actions tab, select "Build and Publish Docker Image", and run it via workflow dispatch.
+Preview the tag a channel would get next:
 
-Dry-run the sync workflow (detects upstream changes without committing): open the Actions tab, select "Check Upstream Release", and run it with `dry_run: true`.
+```sh
+git tag | scripts/next-release-tag.sh mirror stable versions.json -
+git tag | scripts/next-release-tag.sh patch stable versions.json -
+```
+
+Every workflow has a dry run that stops short of writing anything. In the Actions tab: "Build and Publish Docker Image" via workflow dispatch builds and smoke-tests both channels without pushing; "Check Upstream Release" with `dry_run: true` resolves upstream and gates on a build without committing; "Cut Patch Release" with `dry_run: true` computes the tag and gates on a build without creating the release.
 
 Post-release check:
 

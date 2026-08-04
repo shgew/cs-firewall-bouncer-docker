@@ -44,6 +44,14 @@ setup() {
   echo "$output" | jq -e '.stable.version == "v0.0.34"'
 }
 
+@test "prerelease flag ignored: a bare tag flagged prerelease becomes the stable head" {
+  run --separate-stderr scripts/resolve-upstream.sh test/fixtures/releases-prerelease-flagged-stable.json test/fixtures/versions-current.json
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.stable.version == "v0.0.36"'
+  echo "$output" | jq -e '.rc.version == "v0.0.36"'
+  echo "$output" | jq -e '.stable.tarballs.amd64 == "sha256:f86e4b72693549d99f40a9402abefb894108f047a3fbe6e72fada25ee17ce88b"'
+}
+
 @test "missing arm64 asset exits 1 with asset name in message" {
   run --separate-stderr scripts/resolve-upstream.sh test/fixtures/releases-missing-arm64.json test/fixtures/versions-current.json
   [ "$status" -ne 0 ]

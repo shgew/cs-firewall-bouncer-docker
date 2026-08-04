@@ -50,8 +50,7 @@ def channel_entry($rel):
  | map(select(.draft == false
               and (.tag_name | test("^v[0-9]+\\.[0-9]+\\.[0-9]+(-rc[0-9]+)?$"))))) as $cands
 | ($cands
-   | map(select(.prerelease == false
-                and (.tag_name | test("^v[0-9]+\\.[0-9]+\\.[0-9]+$"))))
+   | map(select(.tag_name | test("^v[0-9]+\\.[0-9]+\\.[0-9]+$")))
    | sort_by(.tag_name | parsekey)
    | last) as $stable_head
 | ($cands | sort_by(.tag_name | parsekey) | last) as $rc_head
