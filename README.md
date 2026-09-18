@@ -76,6 +76,8 @@ A repo release tag is the upstream tag, character for character. Mirroring an up
 
 When a channel head changes, the sync builds both architectures and runs `scripts/smoke-test.sh` before it commits. A failed build or smoke test means no commit, no release, and no image. The smoke test executes the amd64 image; arm64 is built and checksum-verified but not run.
 
+The smoke test reads the pinned version from the binary's Go build info, not from `crowdsec-firewall-bouncer -version`. Upstream stamps that string from `git describe`, which names a sibling tag when several point at one commit: the `v0.0.37` tarballs report `v0.0.36-rc1`. The build info module version is set by the Go toolchain from the tag being built and stays correct.
+
 The `RELEASE_TOKEN` repo secret (a PAT with `contents:write` scope) is required. GitHub does not trigger `release: published` workflow events for releases created with the default `GITHUB_TOKEN`, so releases must be created with a PAT.
 
 ## Patch releases

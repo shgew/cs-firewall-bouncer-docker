@@ -2,7 +2,7 @@
 set -euo pipefail
 
 IMAGE="$1"
-EXPECTED_VERSION="${2#v}"
+EXPECTED_VERSION="v${2#v}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -23,11 +23,11 @@ check() {
   fi
 }
 
-version_out="$(docker run --rm --entrypoint crowdsec-firewall-bouncer "$IMAGE" -version 2>&1 || true)"
-if printf '%s\n' "$version_out" | grep -qF "$EXPECTED_VERSION"; then
-  check "version reports $EXPECTED_VERSION" 0
+module_line="$(printf 'mod\tgithub.com/crowdsecurity/cs-firewall-bouncer\t%s\t' "$EXPECTED_VERSION")"
+if docker run --rm --entrypoint cat "$IMAGE" /usr/local/bin/crowdsec-firewall-bouncer | grep -aF "$module_line" >/dev/null; then
+  check "build info pins module version $EXPECTED_VERSION" 0
 else
-  check "version reports $EXPECTED_VERSION" 1
+  check "build info pins module version $EXPECTED_VERSION" 1
 fi
 
 if docker run --rm \
