@@ -7,10 +7,10 @@
     }
   },
   "rc": {
-    "version": "v0.0.37",
+    "version": "v0.0.38-rc1",
     "tarballs": {
-      "amd64": "sha256:9e128e9ff6157ec84b0bf359b7bb0c062bdd98a19bfafc9748d06f0cf84e27ac",
-      "arm64": "sha256:1db6dcdcb1a2bd0b1eebf03d4b3debbe98e9118cf453622556bf10af2e22a4a1"
+      "amd64": "sha256:ee690d451cbf3e02797f9e61d1ea62992df4b9198c4523916f8f5026770ccc1d",
+      "arm64": "sha256:3b7cc25c2c1b15eca81ad74c9e4d3a898dd218e86f6549ca393677ffc966aca9"
     }
   }
 }
