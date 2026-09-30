@@ -1,16 +1,16 @@
 {
   "stable": {
-    "version": "v0.0.36",
+    "version": "v0.0.38",
     "tarballs": {
-      "amd64": "sha256:f86e4b72693549d99f40a9402abefb894108f047a3fbe6e72fada25ee17ce88b",
-      "arm64": "sha256:ce184d3b1ae5888189d237bb0ff1d2414be2ef12729750a7321a4abd2d253de6"
+      "amd64": "sha256:3cb7ca302438ede690849218d585dee6cbba7915982f79f3dd45024a9eced31e",
+      "arm64": "sha256:5da2f17c05d042748fbc8eed9b8c3dfaeeac571c81b087a600fa2ba226c2116c"
     }
   },
   "rc": {
-    "version": "v0.0.38-rc1",
+    "version": "v0.0.38",
     "tarballs": {
-      "amd64": "sha256:ee690d451cbf3e02797f9e61d1ea62992df4b9198c4523916f8f5026770ccc1d",
-      "arm64": "sha256:3b7cc25c2c1b15eca81ad74c9e4d3a898dd218e86f6549ca393677ffc966aca9"
+      "amd64": "sha256:3cb7ca302438ede690849218d585dee6cbba7915982f79f3dd45024a9eced31e",
+      "arm64": "sha256:5da2f17c05d042748fbc8eed9b8c3dfaeeac571c81b087a600fa2ba226c2116c"
     }
   }
 }
